@@ -774,7 +774,7 @@
             z-index: -1;
             transform: scale(1.1);
         }
-            
+        
         .modal-content {
             background-color: var(--bg-secondary);
             margin: auto; padding: 35px; border-radius: var(--radius-lg);
@@ -908,6 +908,64 @@
         }
         .image-slider-controls button.active { background-color: var(--accent-primary); color: var(--white); }
         
+        /* --- NEW: Image Slider Navigation Arrows --- */
+        .image-slider-nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0; /* Hidden by default */
+            pointer-events: none; /* Can't click when hidden */
+        }
+
+        .image-slider-nav-arrow:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .image-slider-wrapper:hover .image-slider-nav-arrow {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .image-slider-nav-arrow.hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        .image-slider-nav-arrow svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        #image-slider-prev {
+            left: -22px;
+        }
+        #image-slider-next {
+            right: -22px;
+        }
+        html[dir="rtl"] #image-slider-prev {
+            left: auto;
+            right: -22px;
+            transform: translateY(-50%) rotate(180deg);
+        }
+        html[dir="rtl"] #image-slider-next {
+            right: auto;
+            left: -22px;
+            transform: translateY(-50%) rotate(180deg);
+        }
+
         /* Image Slider Scrollbar Hiding */
         .image-slider::-webkit-scrollbar {
             display: none; /* For Chrome, Safari, and Opera */
@@ -916,18 +974,10 @@
             -ms-overflow-style: none;  /* For IE and Edge */
             scrollbar-width: none;  /* For Firefox */
             display: flex; overflow-x: scroll; gap: 18px; padding-bottom: 18px; 
-            scroll-behavior: smooth; /* For smooth scrolling */
-            /* Add pointer-events: none to make sure the scroll events are handled by JS if needed,
-               but for drag-to-scroll, it needs to be auto.
-               It's better to let overflow-x: scroll handle the native scrolling for touch,
-               and add drag for mouse. */
-            cursor: grab;
+            scroll-behavior: smooth; /* For smooth scrolling from arrows */
+            -webkit-overflow-scrolling: touch; /* For smooth scrolling on mobile */
         }
-        .image-slider.grabbing {
-            cursor: grabbing;
-        }
-
-
+        
         .image-slider img {
             height: 160px; width: auto; border-radius: var(--radius-md);
             object-fit: cover; cursor: pointer; transition: var(--transition-base);
@@ -943,17 +993,9 @@
         /* Dynamic fade effect for image slider */
         .image-slider-wrapper {
             position: relative;
-            /* Initial mask for both ends, will be updated by JS */
-            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-            mask-mode: alpha;
+            padding: 0 10px; /* Add some padding so arrows don't overlap content on edges */
         }
-        /* RTL adjustment for mask */
-        html[dir="rtl"] .image-slider-wrapper {
-            -webkit-mask-image: linear-gradient(to left, transparent, black 10%, black 90%, transparent);
-            mask-image: linear-gradient(to left, transparent, black 10%, black 90%, transparent);
-        }
-
+        
         /* Fullscreen Image Viewer */
         .fullscreen-image-viewer {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -1050,6 +1092,14 @@
             .image-slider img { height: 130px; }
             .image-slider img.backdrop-type { height: 110px; }
             .trailer-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+            
+            /* Hide arrows on mobile, rely on swipe */
+            .image-slider-nav-arrow {
+                display: none;
+            }
+            .image-slider-wrapper {
+                padding: 0;
+            }
         }
         @media (max-width: 480px) {
             :root { --section-padding: 20px 3%; }
@@ -1411,7 +1461,7 @@
         </div>
 
         <footer>
-            <p>V2 Created by <a href="https://x.com/ipce" target="_blank" rel="noopener noreferrer">X: ipce</a></p>
+            <p>V3 Created by <a href="https://x.com/ipce" target="_blank" rel="noopener noreferrer">X: ipce</a></p>
         </footer>
     </div>
 
@@ -1958,6 +2008,51 @@
                 return card;
             }
 
+            // ** NEW ** Function to find the best trailer with language fallback
+            function findBestTrailer(videos, preferredLang) {
+                if (!videos || !videos.results || videos.results.length === 0) {
+                    return null;
+                }
+
+                const langShort = preferredLang.split('-')[0];
+                const results = videos.results.filter(v => v.site === 'YouTube');
+
+                // Tier 1: Official Trailer in preferred language
+                let trailer = results.find(v => v.type === 'Trailer' && v.official && v.iso_639_1 === langShort);
+                if (trailer) return trailer;
+
+                // Tier 2: Official Trailer in English (fallback)
+                trailer = results.find(v => v.type === 'Trailer' && v.official && v.iso_639_1 === 'en');
+                if (trailer) return trailer;
+
+                // Tier 3: Any Official Trailer
+                trailer = results.find(v => v.type === 'Trailer' && v.official);
+                if (trailer) return trailer;
+                
+                // Tier 4: Unofficial Trailer in preferred language
+                trailer = results.find(v => v.type === 'Trailer' && v.iso_639_1 === langShort);
+                if (trailer) return trailer;
+
+                // Tier 5: Unofficial Trailer in English
+                trailer = results.find(v => v.type === 'Trailer' && v.iso_639_1 === 'en');
+                if (trailer) return trailer;
+
+                // Tier 6: Any Trailer
+                trailer = results.find(v => v.type === 'Trailer');
+                if (trailer) return trailer;
+
+                // Tier 7: Teaser as a last resort (following same language logic)
+                trailer = results.find(v => (v.type === 'Teaser') && v.iso_639_1 === langShort);
+                if (trailer) return trailer;
+                trailer = results.find(v => (v.type === 'Teaser') && v.iso_639_1 === 'en');
+                if (trailer) return trailer;
+                trailer = results.find(v => v.type === 'Teaser');
+                if (trailer) return trailer;
+
+                return null; // No suitable video found
+            }
+
+
             async function loadLatestTrailers() {
                 if (!latestTrailersGrid) return;
                 latestTrailersGrid.innerHTML = '<div class="loader"></div>';
@@ -1986,26 +2081,13 @@
                 for (const movie of moviesToFetchTrailersFor) {
                     if (trailersFoundCount >= 6) break;
 
-                    const videosData = await fetchData(`movie/${movie.id}/videos`, {}, false);
-                    if (videosData && videosData.results && videosData.results.length > 0) {
-                        const langShort = currentLanguage.split('-')[0];
-                        const officialTrailer =
-                            videosData.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official && v.iso_639_1 === langShort) ||
-                            videosData.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official && v.iso_639_1 === 'en') ||
-                            videosData.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official) ||
-                            videosData.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.iso_639_1 === langShort) ||
-                            videosData.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.iso_639_1 === 'en') ||
-                            videosData.results.find(v => v.site === 'YouTube' && v.type === 'Trailer') ||
-                            videosData.results.find(v => v.site === 'YouTube' && (v.type === 'Teaser') && v.iso_639_1 === langShort) ||
-                            videosData.results.find(v => v.site === 'YouTube' && (v.type === 'Teaser') && v.iso_639_1 === 'en') ||
-                            videosData.results.find(v => v.site === 'YouTube' && (v.type === 'Teaser'));
+                    const videosData = await fetchData(`movie/${movie.id}/videos`, {}, false); // Fetch all languages
+                    const bestTrailer = findBestTrailer(videosData, currentLanguage);
 
-
-                        if (officialTrailer) {
-                            const trailerCard = createTrailerCard(movie, officialTrailer);
-                            fragment.appendChild(trailerCard);
-                            trailersFoundCount++;
-                        }
+                    if (bestTrailer) {
+                        const trailerCard = createTrailerCard(movie, bestTrailer);
+                        fragment.appendChild(trailerCard);
+                        trailersFoundCount++;
                     }
                 }
 
@@ -2082,7 +2164,7 @@
 
                 let posters = imagesData?.posters || [];
                 let backdrops = imagesData?.backdrops || [];
-                const IMAGES_PER_LOAD = 15; // Number of images to load per "More" click
+                const IMAGES_PER_LOAD = 15;
 
                 if (posters.length === 0 && backdrops.length === 0) {
                     sliderContainer.innerHTML = `<p>${getTranslation('no_images_available')}</p>`;
@@ -2095,7 +2177,13 @@
                         <button data-type="backdrops">${getTranslation('backdrops')} (${backdrops.length})</button>
                     </div>
                     <div class="image-slider-wrapper">
+                        <button id="image-slider-prev" class="image-slider-nav-arrow hidden">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                        </button>
                         <div class="image-slider" id="modal-image-slider-content"></div>
+                        <button id="image-slider-next" class="image-slider-nav-arrow hidden">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </button>
                     </div>
                     <div class="more-button-container" id="more-images-container" style="margin-top: 20px;"></div>`;
 
@@ -2103,7 +2191,9 @@
                 const moreImagesContainer = sliderContainer.querySelector('#more-images-container');
                 const posterButton = sliderContainer.querySelector('button[data-type="posters"]');
                 const backdropButton = sliderContainer.querySelector('button[data-type="backdrops"]');
-                const imageSliderWrapper = sliderContainer.querySelector('.image-slider-wrapper');
+                const prevButton = sliderContainer.querySelector('#image-slider-prev');
+                const nextButton = sliderContainer.querySelector('#image-slider-next');
+
 
                 if (posters.length === 0) posterButton.style.display = 'none';
                 if (backdrops.length === 0) backdropButton.style.display = 'none';
@@ -2116,134 +2206,27 @@
                 }
 
                 let currentImageType = posters.length > 0 ? 'posters' : 'backdrops';
-                let visibleImageCount = 0; // Number of images currently displayed in the slider
+                let visibleImageCount = 0;
 
-// ADD THIS NEW BLOCK FOR SMOOTH DRAGGING
-// --- Smooth Drag/Swipe with Momentum ---
-let isDown = false;
-let startX;
-let scrollLeft;
-let velocity = 0;
-let animationFrameId;
+                const updateArrowVisibility = () => {
+                    if (!sliderContent) return;
+                    const scrollLeft = sliderContent.scrollLeft;
+                    const scrollWidth = sliderContent.scrollWidth;
+                    const clientWidth = sliderContent.clientWidth;
 
-// Variables for velocity tracking
-let lastPos;
-let lastTime;
-
-const startDragging = (e) => {
-    isDown = true;
-    sliderContent.classList.add('grabbing');
-    
-    // Use pageX for mouse and touches[0].pageX for touch
-    startX = (e.touches ? e.touches[0].pageX : e.pageX) - sliderContent.offsetLeft;
-    scrollLeft = sliderContent.scrollLeft;
-    
-    // Reset velocity and cancel any ongoing momentum
-    velocity = 0;
-    cancelAnimationFrame(animationFrameId);
-
-    lastPos = startX;
-    lastTime = Date.now();
-    e.preventDefault();
-};
-
-const stopDragging = () => {
-    if (!isDown) return;
-    isDown = false;
-    sliderContent.classList.remove('grabbing');
-    
-    // Start momentum scroll
-    momentumScroll();
-};
-
-const whileDragging = (e) => {
-    if (!isDown) return;
-    e.preventDefault();
-    
-    const x = (e.touches ? e.touches[0].pageX : e.pageX) - sliderContent.offsetLeft;
-    const walk = (x - startX);
-    sliderContent.scrollLeft = scrollLeft - walk;
-    
-    // Calculate velocity
-    const now = Date.now();
-    const deltaPos = x - lastPos;
-    const deltaTime = now - lastTime;
-    
-    if (deltaTime > 0) {
-        velocity = (deltaPos / deltaTime) * 12; // Multiplier for feel
-    }
-    
-    lastPos = x;
-    lastTime = now;
-};
-
-const momentumScroll = () => {
-    if (Math.abs(velocity) < 0.5) {
-        cancelAnimationFrame(animationFrameId);
-        return;
-    }
-    
-    sliderContent.scrollLeft -= velocity;
-    velocity *= 0.95; // Damping factor
-    
-    animationFrameId = requestAnimationFrame(momentumScroll);
-};
-
-// Mouse Events
-sliderContent.addEventListener('mousedown', startDragging);
-sliderContent.addEventListener('mouseup', stopDragging);
-sliderContent.addEventListener('mouseleave', stopDragging);
-sliderContent.addEventListener('mousemove', whileDragging);
-
-// Touch Events
-sliderContent.addEventListener('touchstart', startDragging, { passive: false });
-sliderContent.addEventListener('touchend', stopDragging);
-sliderContent.addEventListener('touchmove', whileDragging, { passive: false });
-
-                // Dynamic Fade Effect
-                function updateFadeEffect() {
-                    if (!imageSliderWrapper || !sliderContent) return;
-
-                    const scrollPercentage = sliderContent.scrollLeft / (sliderContent.scrollWidth - sliderContent.clientWidth);
-                    let leftFadeStrength = Math.min(scrollPercentage * 1.5, 1); // Fade in faster
-                    let rightFadeStrength = Math.min((1 - scrollPercentage) * 1.5, 1); // Fade in faster
-
-                    // Adjust if at the very beginning or end
-                    if (sliderContent.scrollLeft === 0) {
-                        leftFadeStrength = 0;
-                    }
-                    if (sliderContent.scrollLeft + sliderContent.clientWidth >= sliderContent.scrollWidth - 1) { // -1 for small floating point errors
-                        rightFadeStrength = 0;
-                    }
-
-                    // For RTL, swap left and right
-                    const isRTL = document.documentElement.dir === 'rtl';
-
-                    const gradientStops = {
-                        leftStart: `${leftFadeStrength * 10}%`,
-                        leftEnd: `${(1 - leftFadeStrength) * 100}%`,
-                        rightStart: `${(1 - rightFadeStrength) * 100}%`,
-                        rightEnd: `${100 - (rightFadeStrength * 10)}%`
-                    };
-                    
-                    let maskGradient;
-                    if (isRTL) {
-                        maskGradient = `linear-gradient(to left, transparent ${gradientStops.leftStart}, black 10%, black 90%, transparent ${gradientStops.rightEnd})`;
-                    } else {
-                        maskGradient = `linear-gradient(to right, transparent ${gradientStops.leftStart}, black 10%, black 90%, transparent ${gradientStops.rightEnd})`;
-                    }
-
-                    imageSliderWrapper.style.webkitMaskImage = maskGradient;
-                    imageSliderWrapper.style.maskImage = maskGradient;
-
-                    // Hide the fade when no scrollbar is present (content fits)
-                    if (sliderContent.scrollWidth <= sliderContent.clientWidth) {
-                        imageSliderWrapper.style.webkitMaskImage = 'none';
-                        imageSliderWrapper.style.maskImage = 'none';
-                    }
-                }
-
-                sliderContent.addEventListener('scroll', updateFadeEffect);
+                    // A little buffer for floating point inaccuracies
+                    prevButton.classList.toggle('hidden', scrollLeft <= 1);
+                    nextButton.classList.toggle('hidden', scrollLeft + clientWidth >= scrollWidth - 1);
+                };
+                
+                sliderContent.addEventListener('scroll', updateArrowVisibility);
+                
+                prevButton.addEventListener('click', () => {
+                    sliderContent.scrollBy({ left: -sliderContent.clientWidth * 0.8, behavior: 'smooth' });
+                });
+                nextButton.addEventListener('click', () => {
+                    sliderContent.scrollBy({ left: sliderContent.clientWidth * 0.8, behavior: 'smooth' });
+                });
 
 
                 function renderMoreButton() {
@@ -2274,9 +2257,7 @@ sliderContent.addEventListener('touchmove', whileDragging, { passive: false });
                     if (!images || images.length === 0) {
                         sliderContent.innerHTML = `<p class="no-media">${getTranslation('no_images_available')}</p>`;
                         moreImagesContainer.innerHTML = '';
-                        // When no images, ensure no mask is applied
-                        imageSliderWrapper.style.webkitMaskImage = 'none';
-                        imageSliderWrapper.style.maskImage = 'none';
+                        updateArrowVisibility();
                         return;
                     }
 
@@ -2296,8 +2277,8 @@ sliderContent.addEventListener('touchmove', whileDragging, { passive: false });
                     
                     visibleImageCount = endIndex;
                     renderMoreButton();
-                    // Initial update for fade effect after populating
-                    updateFadeEffect();
+                    // Use a timeout to allow the DOM to update before checking scroll properties
+                    setTimeout(updateArrowVisibility, 100);
                 }
                 
                 posterButton.addEventListener('click', () => {
@@ -2335,6 +2316,7 @@ sliderContent.addEventListener('touchmove', whileDragging, { passive: false });
                 modalBody.innerHTML = '<div class="loader"></div>';
 
                 const details = await fetchData(`${type}/${id}`, { append_to_response: 'credits,videos,images', include_image_language: `${currentLanguage.split('-')[0]},null,en` }, true);
+                const videosInAllLangs = await fetchData(`${type}/${id}/videos`, {}, false); // Fetch videos separately without language param
 
                 if (!details) {
                     modalBody.innerHTML = `<p>${getTranslation('could_not_load_details')}</p>`;
@@ -2382,26 +2364,13 @@ sliderContent.addEventListener('touchmove', whileDragging, { passive: false });
                         </div>`;
                 }
 
-                // Find official trailer
+                // ** UPDATED TRAILER LOGIC **
                 let trailerHtml = `<p class="no-trailer-message">${getTranslation('no_trailer_found')}</p>`;
-                if (details.videos && details.videos.results && details.videos.results.length > 0) {
-                    const langShort = currentLanguage.split('-')[0];
-                    const officialTrailer =
-                        details.videos.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official && v.iso_639_1 === langShort) ||
-                        details.videos.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official && v.iso_639_1 === 'en') ||
-                        details.videos.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official) ||
-                        details.videos.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.iso_639_1 === langShort) ||
-                        details.videos.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.iso_639_1 === 'en') ||
-                        details.videos.results.find(v => v.site === 'YouTube' && v.type === 'Trailer') ||
-                        details.videos.results.find(v => v.site === 'YouTube' && (v.type === 'Teaser') && v.iso_639_1 === langShort) ||
-                        details.videos.results.find(v => v.site === 'YouTube' && (v.type === 'Teaser') && v.iso_639_1 === 'en') ||
-                        details.videos.results.find(v => v.site === 'YouTube' && (v.type === 'Teaser'));
-
-                    if (officialTrailer) {
-                        trailerHtml = `<div class="trailer-player-container">
+                const officialTrailer = findBestTrailer(videosInAllLangs, currentLanguage);
+                if (officialTrailer) {
+                    trailerHtml = `<div class="trailer-player-container">
                                         <iframe width="100%" height="auto" src="${YOUTUBE_EMBED_BASE_URL}${officialTrailer.key}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                                      </div>`;
-                    }
+                                    </div>`;
                 }
 
 
@@ -3024,7 +2993,7 @@ sliderContent.addEventListener('touchmove', whileDragging, { passive: false });
                     const itemType = item.media_type;
                     const itemId = item.id;
                     const videosData = await fetchData(`${itemType}/${itemId}/videos`, {}, false);
-                    const trailer = videosData?.results?.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+                    const trailer = findBestTrailer(videosData, currentLanguage); // ** USE NEW FINDER FUNCTION **
                     
                     const imagesData = await fetchData(`${itemType}/${itemId}/images`, {include_image_language: 'en,null'});
                     const logo = imagesData?.logos?.find(l => l.iso_639_1 === 'en' && l.file_path);
