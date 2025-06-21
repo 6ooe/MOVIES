@@ -2437,11 +2437,13 @@
                     let streamUrl = '';
                     if (type === 'movie') {
                         if (server === 'videasy') streamUrl = `https://player.videasy.net/movie/${id}`;
-                        else if (server === 'vidlink.pro') streamUrl = `https://vidlink.pro/embed/movie/${id}`;
+                        // ** UPDATED: Corrected vidlink.pro movie URL **
+                        else if (server === 'vidlink.pro') streamUrl = `https://vidlink.pro/movie/${id}`;
                         else streamUrl = `https://embed.su/embed/movie/${id}`;
                     } else if (type === 'tv' && currentSeason && currentEpisode) {
                         if (server === 'videasy') streamUrl = `https://player.videasy.net/tv/${id}/${currentSeason}/${currentEpisode}`;
-                        else if (server === 'vidlink.pro') streamUrl = `https://vidlink.pro/embed/tv/${id}/${currentSeason}-${currentEpisode}`;
+                        // ** UPDATED: Corrected vidlink.pro TV show URL **
+                        else if (server === 'vidlink.pro') streamUrl = `https://vidlink.pro/tv/${id}/${currentSeason}/${currentEpisode}`;
                         else streamUrl = `https://embed.su/embed/tv/${id}/${currentSeason}/${currentEpisode}`;
                     }
                     if(streamUrl) streamPlayer.src = streamUrl;
